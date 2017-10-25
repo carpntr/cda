@@ -8,5 +8,6 @@ build/
 test.py
 venv/
 .idea/
-binance/tests/int/test_client.py
 .cache/
+cassettes/
+mongo_data
