@@ -11,3 +11,4 @@ venv/
 .cache/
 cassettes/
 mongo_data
+.coverage

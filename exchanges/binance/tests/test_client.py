@@ -1,6 +1,4 @@
 import vcr
-import json
-import pprint
 from exchanges.binance.client import Depth
 
 
