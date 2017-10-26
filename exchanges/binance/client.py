@@ -110,6 +110,4 @@ class SocketManager:
         gevent.joinall(threads)
 
 
-if __name__ == '__main__':
-    ticker = SocketManager(symbols=['ETHBTC', 'BNBBTC'], data_lib='binance.testbook')
-    ticker.stream_orderbook(write=False)
+

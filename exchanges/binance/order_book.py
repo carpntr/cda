@@ -70,12 +70,15 @@ class OrderBook:
             db_input['index'] = dt.fromtimestamp(self.timestamp/1000.0,
                                                  tz=self.tz)
             db_input['depth_id'] = self.last_update_id
-            for n, bid in enumerate(self.bids.items()):
-                db_input[f'bid{n+1}'] = bid[0]
-                db_input[f'bid{n+1}_ammt'] = bid[1]
-            for n, ask in enumerate(self.asks.items()):
-                db_input[f'ask{n+1}'] = ask[0]
-                db_input[f'ask{n+1}_ammt'] = ask[1]
+            sort_bids = sorted(self.bids, reverse=True)
+            sort_asks = sorted(self.asks)
+            for n, k in enumerate(sort_bids):
+                db_input[f'bid{n+1}'] = k
+                db_input[f'bid{n+1}_ammt'] = self.bids[k]
+            for n, k in enumerate(sort_asks):
+                db_input[f'ask{n+1}'] = k
+                db_input[f'ask{n+1}_ammt'] = self.asks[k]
+            print(db_input['bid1'], db_input['bid1_ammt'])
             return [db_input]
         else:
             d = {'id': self.last_update_id,
