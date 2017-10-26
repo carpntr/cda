@@ -1,0 +1,77 @@
+@startuml
+
+node feed_handlers {
+    agent sentimentcollector
+    agent marketcollector
+    agent chaincollector
+}
+
+database mongoDB {
+  folder market_data {
+    card orderbook
+    card volume
+    card tick
+    card OHLC
+  }
+  folder "Sentiment Data" {
+    card sentiment_index
+  }
+}
+
+cloud sentiment {
+    node other {
+        card googletrends
+        card trollboxes
+        card github
+        card pastebin
+    }
+    node social {
+        card twitter
+        card reddit
+    }
+}
+
+cloud "exchanges" {
+  card Bitstamp
+  card Binance
+  card Bittrex
+  card Kraken
+  card Poloniex
+  card etc...
+}
+
+cloud full_nodes {
+    node BTC
+    node ETH
+    node LTC
+    node etc..
+}
+
+'node higher_latency_apps
+'higher_latency_apps --> exchanges
+'mongoDB ---> higher_latency_apps
+
+
+node low_latency_apps
+marketcollector ----> low_latency_apps
+low_latency_apps ---> exchanges
+mongoDB <---> low_latency_apps
+
+agent webcrawler
+sentiment <---> webcrawler
+webcrawler --> sentimentcollector
+
+control control
+control ---> mongoDB
+chaincollector ---> control
+sentimentcollector ---> control
+marketcollector ---> control
+
+
+full_nodes ---> chaincollector
+
+
+exchanges -> marketcollector
+
+
+@enduml
