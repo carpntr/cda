@@ -32,5 +32,5 @@ Ok, so your database should be up and running and ready to accept data. To launc
 Binance stream:
 
 ```
-
+python run.py
 ```
