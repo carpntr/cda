@@ -4,6 +4,12 @@ import json
 import pprint
 
 class OrderBook:
+    """
+    Stores the state of the orderbook. Use initialize() to get base set of
+    orders using REST endpoint then update() to pass subsequent orders that
+    are pulled from the websocket.
+    """
+
     tz = pytz.timezone('US/Eastern')
 
     def __init__(self):
@@ -13,7 +19,22 @@ class OrderBook:
         self.timestamp = 0
 
     def initialize(self, depth_dict):
+        """
+        Initialize the orderbook instance by pulling from RESTful depth endpoint
+
+        Parameters
+        ----------
+        depth_dict : dict
+            json.loads(response.content) for requests.get() call
+
+        References
+        ----------
+        https://www.binance.com/restapipub.html#user-content-market-data-endpoints
+
+        """
         # TODO: sync v1/depth id to ws/@depth id before streaming
+        # TODO: logging
+
         if not isinstance(depth_dict, dict):
             raise Exception("Invalid book. Pass a dictionary")
         if 'lastUpdateId' in depth_dict:
@@ -24,6 +45,19 @@ class OrderBook:
             raise Exception('Invalid depth dictionary')
 
     def update(self, update_dict):
+        """
+        Add new dictionary of orderbook values to current orderbook instance.
+
+        Parameters
+        ----------
+        update_dict : dict
+            dictionary containing new order book values
+
+        References
+        ----------
+        https://www.binance.com/restapipub.html#depth-wss-endpoint
+
+        """
         if not isinstance(update_dict, dict):
             raise Exception("Invalid book. Pass a dictionary")
 
@@ -64,22 +98,33 @@ class OrderBook:
                 del self.asks[k]
 
     def dump(self, style=None):
-        """Return dictionary ready to be written to database"""
+        """
+        Return dictionary ready to be written to database
+        
+        Parameters
+        ----------
+        style : str
+            output type -- (arctic or general dictionary)
+
+        Returns
+        -------
+        d : dict
+        """
         if style == 'arctic':
-            db_input = {}
-            db_input['index'] = dt.fromtimestamp(self.timestamp/1000.0,
+            d = {}
+            d['index'] = dt.fromtimestamp(self.timestamp/1000.0,
                                                  tz=self.tz)
-            db_input['depth_id'] = self.last_update_id
+            d['depth_id'] = self.last_update_id
             sort_bids = sorted(self.bids, reverse=True)
             sort_asks = sorted(self.asks)
             for n, k in enumerate(sort_bids):
-                db_input[f'bid{n+1}'] = k
-                db_input[f'bid{n+1}_ammt'] = self.bids[k]
+                d[f'bid{n+1}'] = k
+                d[f'bid{n+1}_ammt'] = self.bids[k]
             for n, k in enumerate(sort_asks):
-                db_input[f'ask{n+1}'] = k
-                db_input[f'ask{n+1}_ammt'] = self.asks[k]
-            print(db_input['bid1'], db_input['bid1_ammt'])
-            return [db_input]
+                d[f'ask{n+1}'] = k
+                d[f'ask{n+1}_ammt'] = self.asks[k]
+            # print(d['bid1'], d['bid1_ammt'])
+            return [d]
         else:
             d = {'id': self.last_update_id,
                  'timestamp': self.timestamp,
