@@ -123,7 +123,7 @@ class OrderBook:
             for n, k in enumerate(sort_asks):
                 d[f'ask{n+1}'] = k
                 d[f'ask{n+1}_ammt'] = self.asks[k]
-            # print(d['bid1'], d['bid1_ammt'])
+            print(d['bid1'], d['bid1_ammt'])
             return [d]
         else:
             d = {'id': self.last_update_id,

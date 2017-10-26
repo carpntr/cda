@@ -6,3 +6,4 @@ mongo:
 
 test:
 	pytest
+

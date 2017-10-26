@@ -59,6 +59,7 @@ class DepthSocket(BinanceWebSocket):
         # Dump to database
         if self.write:
             try:
+                print('%s -- ' % self.symbol, end='')
                 self.dbconn.write(self.symbol,
                                   self.order_book.dump(style='arctic'))
             except Exception as e:
@@ -91,6 +92,7 @@ class SocketManager:
         self.symbols = symbols
         self.state = None
         self.dbconn = None
+        self.dlib = None
         self.initialize_db(data_lib)
 
     def initialize_db(self, lib):
@@ -99,13 +101,17 @@ class SocketManager:
             if lib not in db.list_libraries():
                 print('Data library \'%s\' does not exist -- creating it' % lib)
                 db.initialize_library(lib, lib_type=TICK_STORE)
+                print('Done.')
+            self.dlib = lib
             self.dbconn = db[lib]
 
     def stream_orderbook(self, write=False):
+        print('Streaming orderbook to %s' % self.dlib)
         def hatch(sym):
             sock = DepthSocket(symbol=sym, dbconn=self.dbconn, write=write)
             sock.stream()
         bucket = self.symbols
+        print('Starting %s collectors.' % len(bucket))
         threads = [gevent.spawn(hatch, sym) for sym in bucket]
         gevent.joinall(threads)
 
