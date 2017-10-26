@@ -5,13 +5,10 @@ import websocket
 import ssl
 import json
 import gevent
-import pytz
 from urllib.parse import urlencode
-from datetime import datetime as dt
 from arctic import Arctic, TICK_STORE
+from exchanges.binance.order_book import OrderBook
 
-
-EST = pytz.timezone('US/Eastern')
 
 
 def create_url(protocol, host, base_path, params):
@@ -20,15 +17,11 @@ def create_url(protocol, host, base_path, params):
     url = f'{protocol}://{host}{base_path}'
     return url + params
 
-
 class BinanceWebSocket:
-
-
     def __init__(self, api_key=None):
         self.api_key = api_key
         self.ws = None
         self.ssl_opt = {"cert_reqs": ssl.CERT_NONE}
-
 
 
 class DepthSocket(BinanceWebSocket):
@@ -45,10 +38,7 @@ class DepthSocket(BinanceWebSocket):
         super().__init__(api_key=None)
         self.symbol = symbol
         self.params = {'symbol': symbol}
-        self.bids = {}
-        self.asks = {}
-        self.last_update_id = None
-        self.timestamp = None
+        self.order_book = OrderBook()
         self.write = write
         self.dbconn = dbconn
         if fetch_base:
@@ -60,45 +50,26 @@ class DepthSocket(BinanceWebSocket):
                               self.rest_base_path, self.params)
         resp = requests.get(rest_url)
         depth = json.loads(resp.content)
-
-        # Initialize bid/ask data
-        self.last_update_id = depth['lastUpdateId']
-        self.bids = {k: v for k, v, _ in depth['bids']}
-        self.asks = {k: v for k, v, _ in depth['asks']}
+        self.order_book.initialize(depth_dict=depth)
         return resp.status_code
-
 
     def update_book(self, new_values):
         """Update state of the book"""
-        if new_values['u'] > self.last_update_id:
-            self.timestamp = new_values['E']
-            self.last_update_id = new_values['u']
-            new_bids = {k: v for k, v, _ in new_values['b']}
-            new_asks = {k: v for k, v, _ in new_values['a']}
-            for k, v in new_bids.items():
-                self.bids[k] = v
-                if v == '0.00000000':
-                    del self.bids[k]
-            for k, v in new_asks.items():
-                self.asks[k] = v
-                if v == '0.00000000':
-                    del self.asks[k]
-
-            # Dump to database
-            if self.write:
-                try:
-                    self.dbconn.write(self.symbol, self.convert_to_arctic())
-                except Exception as e:
-                    print('Failed to write tick to database: \n %s' % e)
-            else:
-                print(self.symbol)
+        self.order_book.update(new_values)
+        # Dump to database
+        if self.write:
+            try:
+                self.dbconn.write(self.symbol,
+                                  self.order_book.dump(style='arctic'))
+            except Exception as e:
+                print('Failed to write tick to database: \n %s' % e)
         else:
-            print('Received stale data')
-            pass
+            print(self.symbol)
 
     def _on_message(self, ws, message):
         data = json.loads(message)
         self.update_book(data)
+        gevent.sleep(0)
 
     def _on_error(self, ws, error):
         raise Exception(error)
@@ -111,21 +82,9 @@ class DepthSocket(BinanceWebSocket):
                                          on_error=self._on_error)
         self.ws.run_forever(sslopt=self.ssl_opt)
 
-    def convert_to_arctic(self):
-        db_input = {}
-        db_input['index'] = dt.fromtimestamp(self.timestamp/1000.0, tz=EST)
-        db_input['depth_id'] = self.last_update_id
-        for n, bid in enumerate(self.bids.items()):
-            db_input[f'bid{n}'] = bid[0]
-            db_input[f'bid{n}_ammt'] = bid[1]
-        for n, ask in enumerate(self.asks.items()):
-            db_input[f'ask{n}'] = ask[0]
-            db_input[f'ask{n}_ammt'] = ask[1]
-        # print(db_input['bid1'] + ': ' + db_input['bid1_ammt'])
-        return [db_input]
 
 
-class OrderBook:
+class SocketManager:
     """Collection of depth tickers?"""
     def __init__(self, symbols, data_lib=None, api_key=None):
         self.api_key = api_key
@@ -142,12 +101,6 @@ class OrderBook:
                 db.initialize_library(lib, lib_type=TICK_STORE)
             self.dbconn = db[lib]
 
-
-    def _on_update(self, values):
-        """Specify what to do with new data"""
-        print(values)
-        gevent.sleep(0)
-
     def stream_orderbook(self, write=False):
         def hatch(sym):
             sock = DepthSocket(symbol=sym, dbconn=self.dbconn, write=write)
@@ -158,5 +111,5 @@ class OrderBook:
 
 
 if __name__ == '__main__':
-    ticker = OrderBook(symbols=['BNBBTC', 'ETHBTC'], data_lib='binance.testbook')
+    ticker = SocketManager(symbols=['ETHBTC', 'BNBBTC'], data_lib='binance.testbook')
     ticker.stream_orderbook(write=False)
