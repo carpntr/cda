@@ -1,7 +1,9 @@
 import pytz
-from datetime import datetime as dt
 import json
 import pprint
+import logging
+from datetime import datetime as dt
+from util.exceptions import *
 
 class OrderBook:
     """
@@ -13,6 +15,7 @@ class OrderBook:
     tz = pytz.timezone('US/Eastern')
 
     def __init__(self):
+        self.logger = logging.getLogger(__name__)
         self.bids = {}
         self.asks = {}
         self.last_update_id = 0
@@ -34,15 +37,12 @@ class OrderBook:
         """
         # TODO: sync v1/depth id to ws/@depth id before streaming
         # TODO: logging
-
-        if not isinstance(depth_dict, dict):
-            raise Exception("Invalid book. Pass a dictionary")
-        if 'lastUpdateId' in depth_dict:
+        try:
             self.last_update_id = depth_dict['lastUpdateId']
             self.bids = {k: v for k, v, _ in depth_dict['bids'] if float(v) != 0.0}
             self.asks = {k: v for k, v, _ in depth_dict['asks'] if float(v) != 0.0}
-        else:
-            raise Exception('Invalid depth dictionary')
+        except (TypeError, KeyError):
+            raise InvalidOrderBook(bad_book=depth_dict)
 
     def update(self, update_dict):
         """
@@ -58,26 +58,18 @@ class OrderBook:
         https://www.binance.com/restapipub.html#depth-wss-endpoint
 
         """
-        if not isinstance(update_dict, dict):
-            raise Exception("Invalid book. Pass a dictionary")
+        try:
+            if update_dict['e'] != 'depthUpdate':
+                raise KeyError('Invalid update type!')
 
-        if update_dict['e'] != 'depthUpdate':
-            raise Exception('Invalid event type -- requires depthUpdate')
-
-        if update_dict['u'] >= self.last_update_id:
-            self.last_update_id = update_dict['u']
-            self.timestamp = update_dict['E']
-            try:
+            if update_dict['u'] >= self.last_update_id:
+                self.last_update_id = update_dict['u']
+                self.timestamp = update_dict['E']
                 self._replace_bids(update_dict['b'])
                 self._replace_asks(update_dict['a'])
-            except Exception as e:
-                print('REPLACEMENT FAILURE: %s' % (e))
-                # with open('tmpfile.txt', 'w') as w:
-                #     json.dump(self.bids, w, indent=2)
-                #     w.write('\n')
-                #     w.write('API UPDATE:')
-                #     json.dump(update_dict, w, indent=2)
-                #     exit(1)
+
+        except (TypeError, KeyError):
+            raise InvalidOrderBook(bad_book=update_dict)
 
     def _replace_bids(self, new_vals):
         """
@@ -123,7 +115,7 @@ class OrderBook:
             for n, k in enumerate(sort_asks):
                 d[f'ask{n+1}'] = k
                 d[f'ask{n+1}_ammt'] = self.asks[k]
-            print(d['bid1'], d['bid1_ammt'])
+            # print(d['bid1'], d['bid1_ammt'])
             return [d]
         else:
             d = {'id': self.last_update_id,
