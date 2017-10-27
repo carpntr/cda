@@ -23,15 +23,18 @@ def test_initialize_book(depth_call):
 def test_update_book(depth_call, depth_update):
     # Case 1: Set some arbitrary values
     book.initialize(depth_call)
-    bid_before = list(book.bids.keys())[0]
-    ask_before = list(book.asks.keys())[0]
+    bid_0, ask_0 = list(book.bids.keys())[0], list(book.asks.keys())[0]
+    ask_1 = list(book.asks.keys())[1]
     new_vals = depth_update
-    new_vals['b'][0][0] = bid_before
-    new_vals['a'][0][0] = ask_before
+    new_vals['b'][0][0] = bid_0
+    new_vals['a'][0][0] = ask_0
+    new_vals['a'][1][0] = ask_1
     new_vals['u'] = book.last_update_id
     book.update(new_vals)
-    assert bid_before not in book.bids
-    assert book.asks[ask_before] == '69.00'
+    assert bid_0 not in book.bids
+    assert book.asks[ask_0] == '69.00'
+    assert ask_1 not in book.asks
+
 
     # Case 2: No update id
     new_vals.pop('u')

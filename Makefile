@@ -5,5 +5,5 @@ mongo:
 	docker-compose up -d
 
 test:
-	pytest
+	pytest --cov=exchanges
 

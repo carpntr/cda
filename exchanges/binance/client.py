@@ -42,6 +42,7 @@ class DepthSocket(BinanceWebSocket):
         self.write = write
         self.dbconn = dbconn
         if fetch_base:
+            # ToDo: Think thru case where ticker is bad
             self.initialize_book()
 
     def initialize_book(self):
@@ -49,8 +50,9 @@ class DepthSocket(BinanceWebSocket):
         rest_url = create_url(self.rest_protocol, self.rest_host,
                               self.rest_base_path, self.params)
         resp = requests.get(rest_url)
-        depth = json.loads(resp.content)
-        self.order_book.initialize(depth_dict=depth)
+        if resp.status_code == 200:
+            depth = json.loads(resp.content)
+            self.order_book.initialize(depth_dict=depth)
         return resp.status_code
 
     def update_book(self, new_values):
