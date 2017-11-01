@@ -5,10 +5,10 @@ import websocket
 import ssl
 import json
 import gevent
+import logging
 from urllib.parse import urlencode
 from arctic import Arctic, TICK_STORE
 from exchanges.binance.order_book import OrderBook
-
 
 
 def create_url(protocol, host, base_path, params):
@@ -16,6 +16,7 @@ def create_url(protocol, host, base_path, params):
     params = ("?" + urlencode(params)) if params else ""
     url = f'{protocol}://{host}{base_path}'
     return url + params
+
 
 class BinanceWebSocket:
     def __init__(self, api_key=None):
@@ -36,6 +37,7 @@ class DepthSocket(BinanceWebSocket):
 
     def __init__(self, symbol, fetch_base=True, write=False, dbconn=None):
         super().__init__(api_key=None)
+        self.logger = logging.getLogger(__name__)
         self.symbol = symbol
         self.params = {'symbol': symbol}
         self.order_book = OrderBook()
@@ -52,7 +54,10 @@ class DepthSocket(BinanceWebSocket):
         resp = requests.get(rest_url)
         if resp.status_code == 200:
             depth = json.loads(resp.content)
+            self.logger.info(f'Initializing {self.symbol} orderbook.')
             self.order_book.initialize(depth_dict=depth)
+        else:
+            self.logger.error(f'Failed to initialize {self.symbol} orderbook!')
         return resp.status_code
 
     def update_book(self, new_values):
@@ -61,13 +66,12 @@ class DepthSocket(BinanceWebSocket):
         # Dump to database
         if self.write:
             try:
-                print('%s -- ' % self.symbol, end='')
                 self.dbconn.write(self.symbol,
                                   self.order_book.dump(style='arctic'))
-            except Exception as e:
-                print('Failed to write tick to database: \n %s' % e)
+            except Exception:
+                self.logger.exception('Failed to write tick to database!')
         else:
-            print(self.symbol)
+            self.logger.debug(self.symbol)
 
     def _on_message(self, ws, message):
         data = json.loads(message)
@@ -78,6 +82,7 @@ class DepthSocket(BinanceWebSocket):
         raise Exception(error)
 
     def stream(self):
+        """Start listening to websocket"""
         call_path = f'/{self.symbol.lower()}@depth'
         url = f'{self.ws_protocol}://{self.ws_host}:{self.ws_port}{self.ws_base_path}{call_path}'
         self.ws = websocket.WebSocketApp(url,
@@ -86,10 +91,10 @@ class DepthSocket(BinanceWebSocket):
         self.ws.run_forever(sslopt=self.ssl_opt)
 
 
-
 class SocketManager:
-    """Collection of depth tickers?"""
+    """Collection of depth listeners"""
     def __init__(self, symbols, data_lib=None, api_key=None):
+        self.logger = logging.getLogger(__name__)
         self.api_key = api_key
         self.symbols = symbols
         self.state = None
@@ -101,21 +106,17 @@ class SocketManager:
         if lib:
             db = Arctic('localhost')
             if lib not in db.list_libraries():
-                print('Data library \'%s\' does not exist -- creating it' % lib)
+                self.logger.info('Data library \'%s\' does not exist -- creating it', lib)
                 db.initialize_library(lib, lib_type=TICK_STORE)
-                print('Done.')
             self.dlib = lib
             self.dbconn = db[lib]
 
     def stream_orderbook(self, write=False):
-        print('Streaming orderbook to %s' % self.dlib)
+        self.logger.info('Streaming orderbook to %s', self.dlib)
         def hatch(sym):
             sock = DepthSocket(symbol=sym, dbconn=self.dbconn, write=write)
             sock.stream()
         bucket = self.symbols
-        print('Starting %s collectors.' % len(bucket))
+        self.logger.info('Starting %s collectors.', len(bucket))
         threads = [gevent.spawn(hatch, sym) for sym in bucket]
         gevent.joinall(threads)
-
-
-
