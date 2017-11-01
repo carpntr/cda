@@ -1,6 +1,8 @@
 version: '2'
 
+
 services:
+  #TODO: Move to timescale
   db:
     image: mongo:3.2
     ports:

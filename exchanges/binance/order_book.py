@@ -41,6 +41,7 @@ class OrderBook:
             self.last_update_id = depth_dict['lastUpdateId']
             self.bids = {k: v for k, v, _ in depth_dict['bids'] if float(v) != 0.0}
             self.asks = {k: v for k, v, _ in depth_dict['asks'] if float(v) != 0.0}
+            self.logger.info('Orderbook initialized')
         except (TypeError, KeyError):
             raise InvalidOrderBook(bad_book=depth_dict)
 
@@ -115,7 +116,7 @@ class OrderBook:
             for n, k in enumerate(sort_asks):
                 d[f'ask{n+1}'] = k
                 d[f'ask{n+1}_ammt'] = self.asks[k]
-            # print(d['bid1'], d['bid1_ammt'])
+            print(d['bid1'], d['bid1_ammt'])
             return [d]
         else:
             d = {'id': self.last_update_id,

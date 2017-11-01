@@ -1,12 +1,14 @@
 @startuml
+node low_latency_apps
+queue write_queue
+node BlockSci
 
-node feed_handlers {
-    agent sentimentcollector
+frame feed_handlers {
+    agent sentimentaggregator
     agent marketcollector
-    agent chaincollector
 }
 
-database mongoDB {
+database DB {
   folder market_data {
     card orderbook
     card volume
@@ -18,60 +20,55 @@ database mongoDB {
   }
 }
 
-cloud sentiment {
+agent webcrawler
+frame sentiment {
     node other {
-        card googletrends
         card trollboxes
         card github
-        card pastebin
     }
     node social {
         card twitter
         card reddit
     }
+    trollboxes --> webcrawler
+    github --> webcrawler
+    twitter --> webcrawler
+    reddit --> webcrawler
 }
+webcrawler --> sentimentaggregator
+sentimentaggregator --> write_queue
 
-cloud "exchanges" {
+
+frame exchanges {
   card Bitstamp
   card Binance
   card Bittrex
   card Kraken
   card Poloniex
-  card etc...
+  card GDAX
 }
+exchanges ---> marketcollector
+marketcollector ----> write_queue
+write_queue --> DB
+marketcollector ---> low_latency_apps
+low_latency_apps <--> DB
+low_latency_apps --> exchanges
 
-cloud full_nodes {
+
+frame full_nodes {
     node BTC
     node ETH
     node LTC
-    node etc..
+    node BCH
+
+    BTC --> BlockSci
+    LTC --> BlockSci
+    ETH --> BlockSci
+    BCH --> BlockSci
 }
-
-'node higher_latency_apps
-'higher_latency_apps --> exchanges
-'mongoDB ---> higher_latency_apps
+BlockSci ---right-> DB
 
 
-node low_latency_apps
-marketcollector ----> low_latency_apps
-low_latency_apps ---> exchanges
-mongoDB <---> low_latency_apps
-
-agent webcrawler
-sentiment <---> webcrawler
-webcrawler --> sentimentcollector
-
-control control
-control ---> mongoDB
-chaincollector ---> control
-sentimentcollector ---> control
-marketcollector ---> control
-
-
-full_nodes ---> chaincollector
-
-
-exchanges -> marketcollector
 
 
 @enduml
