@@ -12,3 +12,4 @@ venv/
 cassettes/
 mongo_data
 .coverage
+exchanges/cryptocompare/node_modules/

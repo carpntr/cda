@@ -1,11 +1,31 @@
-version: '2'
+version: '3'
 
 
 services:
-  #TODO: Move to timescale
-  db:
-    image: mongo:3.2
+
+#  db:
+#    image: mongo:3.2
+#    ports:
+#      - "27017:27017"
+#    volumes:
+#      - ./mongo_data:/data/db
+
+  postgres:
+    image: postgres:9.6
+    container_name: db
     ports:
-      - "27017:27017"
+      - "5433:5432"
     volumes:
-      - ./mongo_data:/data/db
+      - ./db/postgres_data:/var/lib/postgresql/data
+
+  gnatsd:
+    image: apcera/gnatsd
+    container_name: gnatsd
+    expose:
+     - 4222
+     - 6222
+     - 8222
+    ports:
+     - "4222:4222"
+     - "6222:6222"
+     - "8222:8222"

@@ -5,7 +5,7 @@ mongo:
 	docker-compose up -d
 
 test:
-	pytest --cov=exchanges
+	pytest exchanges/ --cov=exchanges
 
 requirements:
 	pip freeze | grep -v "pkg-resources" > requirements.txt
